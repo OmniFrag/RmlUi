@@ -982,7 +982,17 @@ private:
 			auto str = R.Get<String>();
 			auto address = expression_interface.ParseAddress(str);
 			if (address.empty())
+			{
+				// An index below zero, as a value that says none by -1, into a variable that resolves has no address: read it as
+				// unset, quietly, rather than fail the expression and leave its view as it was (an index past the end reads as unset
+				// too, with a warning). && and || still evaluate both sides, as RmlUi intends, so a test there guards nothing.
+				if (str.find("[-") != String::npos && !expression_interface.ParseAddress(str.substr(0, str.find('['))).empty())
+				{
+					R = Variant();
+					break;
+				}
 				return Error("Variable address not found.");
+			}
 			R = expression_interface.GetValue(address);
 		}
 		break;
