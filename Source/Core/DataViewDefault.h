@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../Include/RmlUi/Core/Header.h"
+#include "../../Include/RmlUi/Core/Property.h"
 #include "../../Include/RmlUi/Core/Types.h"
 #include "../../Include/RmlUi/Core/Variant.h"
 #include "DataView.h"
@@ -62,6 +63,10 @@ public:
 	DataViewStyle(Element* element);
 
 	bool Update(DataModel& model) override;
+
+private:
+	String previous_value;
+	Property previous_property;
 };
 
 class DataViewClass final : public DataViewCommon {

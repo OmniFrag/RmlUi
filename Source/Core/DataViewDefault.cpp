@@ -165,9 +165,14 @@ bool DataViewStyle::Update(DataModel& model)
 	{
 		const String value = variant.Get<String>();
 		const Property* p = element->GetLocalProperty(property_name);
-		if (!p || p->Get<String>() != value)
+		// A value with a unit is stored without it ("10" for "10dp"), so compare with the value set last, and set it again
+		// only when it changed or the property no longer is the one it gave, as when another writer changed or removed it.
+		if (!p || value != previous_value || *p != previous_property)
 		{
 			element->SetProperty(property_name, value);
+			previous_value = value;
+			if (const Property* set = element->GetLocalProperty(property_name))
+				previous_property = *set;
 			result = true;
 		}
 	}
