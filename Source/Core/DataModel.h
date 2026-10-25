@@ -40,6 +40,7 @@ public:
 	void DirtyVariable(const String& variable_name);
 	bool IsVariableDirty(const String& variable_name) const;
 	void DirtyAllVariables();
+	bool HasViews() const;
 
 	bool CallTransform(const String& name, const VariantList& arguments, Variant& out_result) const;
 

@@ -19,6 +19,9 @@ public:
 	// A variable, or a path of names in one ("player.health"), which updates only the views reading at, below or above it
 	void DirtyVariable(const String& variable_name);
 	void DirtyAllVariables();
+	// Whether any data view reads from the model; dirtying one that has none updates nothing, as a view added later
+	// reads everything it needs as it's added
+	bool HasViews() const;
 
 	explicit operator bool() { return model; }
 

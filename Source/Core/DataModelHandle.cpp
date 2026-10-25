@@ -20,6 +20,11 @@ void DataModelHandle::DirtyAllVariables()
 	model->DirtyAllVariables();
 }
 
+bool DataModelHandle::HasViews() const
+{
+	return model && model->HasViews();
+}
+
 DataModelConstructor::DataModelConstructor() : model(nullptr), type_register(nullptr) {}
 
 DataModelConstructor::DataModelConstructor(DataModel* model) : model(model), type_register(model->GetDataTypeRegister())

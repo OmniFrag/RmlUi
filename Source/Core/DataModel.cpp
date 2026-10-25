@@ -334,6 +334,11 @@ void DataModel::DirtyVariable(const String& variable_name)
 	dirty_variables.emplace(variable_name);
 }
 
+bool DataModel::HasViews() const
+{
+	return views->HasViews();
+}
+
 bool DataModel::IsVariableDirty(const String& variable_name) const
 {
 	RMLUI_ASSERTMSG(LegalVariableName(variable_name) == nullptr, "Illegal variable name provided. Only top-level variables can be dirtied.");

@@ -91,6 +91,9 @@ public:
 
 	bool Update(DataModel& model, const DirtyVariables& dirty_variables);
 
+	// Whether any view is kept, or waiting to be added.
+	bool HasViews() const { return !views.empty() || !views_to_add.empty(); }
+
 private:
 	using DataViewList = Vector<DataViewPtr>;
 
