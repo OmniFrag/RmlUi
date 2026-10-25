@@ -550,7 +550,7 @@ bool DataViewFor::Update(DataModel& model)
 StringList DataViewFor::GetVariableNameList() const
 {
 	RMLUI_ASSERT(!container_address.empty());
-	return StringList{container_address.front().name};
+	return StringList{DataAddressPath(container_address)};
 }
 
 void DataViewFor::Release()

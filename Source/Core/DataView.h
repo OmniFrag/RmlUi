@@ -4,6 +4,8 @@
 #include "../../Include/RmlUi/Core/Header.h"
 #include "../../Include/RmlUi/Core/Traits.h"
 #include "../../Include/RmlUi/Core/Types.h"
+#include <map>
+#include <string_view>
 
 namespace Rml {
 
@@ -97,8 +99,29 @@ private:
 	DataViewList views_to_add;
 	DataViewList views_to_remove;
 
-	using NameViewMap = UnorderedMultimap<String, DataView*>;
+	// Each view by the paths it reads (DataAddressPath), in order, so that a dirty path finds the views at it, below it
+	// and above it.
+	using NameViewMap = std::multimap<String, DataView*, std::less<>>;
 	NameViewMap name_view_map;
 };
+
+// The path a data address reads, which its view is kept by: its names up to its first index, joined by dots, as in
+// "player.health" for player.health and "match.players" for match.players[3].name. A view is updated when the path, a
+// path below it, or one above it is dirtied: a data model's variable dirtied as a whole updates every view reading
+// inside it, and a member dirtied alone only those reading it, so a variable with many members needn't update every
+// view of it for each change.
+inline String DataAddressPath(const DataAddress& address)
+{
+	String path;
+	for (const DataAddressEntry& entry : address)
+	{
+		if (entry.index >= 0 || entry.name.empty())
+			break;
+		if (!path.empty())
+			path += '.';
+		path += entry.name;
+	}
+	return path;
+}
 
 } // namespace Rml

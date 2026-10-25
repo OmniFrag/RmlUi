@@ -324,9 +324,13 @@ bool DataModel::GetVariableInto(const DataAddress& address, Variant& out_value) 
 
 void DataModel::DirtyVariable(const String& variable_name)
 {
-	RMLUI_ASSERTMSG(LegalVariableName(variable_name) == nullptr, "Illegal variable name provided. Only top-level variables can be dirtied.");
-	RMLUI_ASSERTMSG(allow_missing_variables || variables.count(variable_name) == 1,
+	// A top-level variable, or a path of names within one (DataAddressPath)
+#ifdef RMLUI_DEBUG
+	const String variable = variable_name.substr(0, variable_name.find('.'));
+	RMLUI_ASSERTMSG(LegalVariableName(variable) == nullptr, "Illegal variable name provided. Only variables and paths in them can be dirtied.");
+	RMLUI_ASSERTMSG(allow_missing_variables || variables.count(variable) == 1,
 		"In DirtyVariable: Variable name not found among added variables.");
+#endif
 	dirty_variables.emplace(variable_name);
 }
 

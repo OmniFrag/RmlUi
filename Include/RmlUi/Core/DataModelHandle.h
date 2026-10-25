@@ -16,6 +16,7 @@ public:
 	DataModelHandle(DataModel* model = nullptr);
 
 	bool IsVariableDirty(const String& variable_name);
+	// A variable, or a path of names in one ("player.health"), which updates only the views reading at, below or above it
 	void DirtyVariable(const String& variable_name);
 	void DirtyAllVariables();
 

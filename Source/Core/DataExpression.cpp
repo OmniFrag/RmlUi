@@ -3,6 +3,7 @@
 #include "../../Include/RmlUi/Core/Event.h"
 #include "../../Include/RmlUi/Core/Variant.h"
 #include "DataModel.h"
+#include "DataView.h"
 #include <stack>
 
 #ifdef _MSC_VER
@@ -1159,7 +1160,7 @@ StringList DataExpression::GetVariableNameList() const
 	for (const DataAddress& address : addresses)
 	{
 		if (!address.empty())
-			list.push_back(address[0].name);
+			list.push_back(DataAddressPath(address));
 	}
 	return list;
 }
