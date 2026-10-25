@@ -24,6 +24,11 @@ bool DataView::IsValid() const
 	return static_cast<bool>(attached_element);
 }
 
+void DataView::MarkRemoved()
+{
+	attached_element.reset();
+}
+
 DataView::DataView(Element* element, int bias) : attached_element(element->GetObserverPtr()), sort_order(bias + 1000)
 {
 	RMLUI_ASSERT(bias >= -1000 && bias <= 999);
@@ -46,17 +51,24 @@ void DataViews::Add(DataViewPtr view)
 
 void DataViews::OnElementRemove(Element* element)
 {
+	// A removed view stays listed until the end of the next update, where it would otherwise update while its element lives
+	// on out of the model (a closed document until its release), and a data-for there would give rows aliases that outlive
+	// them; one still to be added would be added for good.
 	for (auto it = views.begin(); it != views.end();)
 	{
 		auto& view = *it;
 		if (view && view->GetElement() == element)
 		{
+			view->MarkRemoved();
 			views_to_remove.push_back(std::move(view));
 			it = views.erase(it);
 		}
 		else
 			++it;
 	}
+	views_to_add.erase(std::remove_if(views_to_add.begin(), views_to_add.end(),
+						   [element](const DataViewPtr& view) { return view && view->GetElement() == element; }),
+		views_to_add.end());
 }
 
 bool DataViews::Update(DataModel& model, const DirtyVariables& dirty_variables)

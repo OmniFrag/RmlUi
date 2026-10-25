@@ -63,6 +63,10 @@ public:
 	// Returns true if the element still exists.
 	bool IsValid() const;
 
+	// Lets go of the element, as it leaves the data model: the view isn't valid from then on, even while the element lives on
+	// out of the model, as a closed document does until it's released.
+	void MarkRemoved();
+
 protected:
 	// @param[in] element The element this data view is attached to.
 	// @param[in] sort_offset A number [-1000, 999] specifying the update order of this
