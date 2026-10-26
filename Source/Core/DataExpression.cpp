@@ -119,6 +119,9 @@ public:
 		return Look();
 	}
 
+	// The character after the current one, without moving to it.
+	char Peek() const { return index + 1 < expression.size() ? expression[index + 1] : '\0'; }
+
 	void SkipWhitespace()
 	{
 		char c = Look();
@@ -302,6 +305,7 @@ namespace Parse {
 	static void Divide(DataParser& parser);
 
 	static void Not(DataParser& parser);
+	static void Negate(DataParser& parser);
 	static void And(DataParser& parser);
 	static void Or(DataParser& parser);
 	static void Less(DataParser& parser);
@@ -542,6 +546,12 @@ namespace Parse {
 			Not(parser);
 			parser.SkipWhitespace();
 		}
+		else if (c == '-' && !((parser.Peek() >= '0' && parser.Peek() <= '9') || parser.Peek() == '.'))
+		{
+			// A minus not starting a number literal negates the factor after it: '-x', '-(a + b)', '- -x'.
+			Negate(parser);
+			parser.SkipWhitespace();
+		}
 		else if (c == '-' || (c >= '0' && c <= '9'))
 		{
 			NumberLiteral(parser);
@@ -553,7 +563,7 @@ namespace Parse {
 			parser.SkipWhitespace();
 		}
 		else
-			parser.Expected("literal, variable name, function name, parenthesis, or '!'");
+			parser.Expected("literal, variable name, function name, parenthesis, '!' or '-'");
 	}
 
 	static void NumberLiteral(DataParser& parser)
@@ -742,6 +752,16 @@ namespace Parse {
 		parser.Match('!');
 		Factor(parser);
 		parser.Emit(Instruction::Not);
+	}
+	static void Negate(DataParser& parser)
+	{
+		// Computed as 0 - factor, with the existing subtraction.
+		parser.Match('-');
+		parser.Emit(Instruction::Literal, Variant(0.0));
+		parser.Push();
+		Factor(parser);
+		parser.Pop(Register::L);
+		parser.Emit(Instruction::Subtract);
 	}
 	static void Or(DataParser& parser)
 	{
