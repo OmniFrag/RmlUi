@@ -34,6 +34,8 @@ WidgetScroll::WidgetScroll(Element* _parent)
 
 	arrow_timers[0] = -1;
 	arrow_timers[1] = -1;
+	track_timer = -1;
+	track_pointer = 0;
 	last_update_time = 0;
 
 	track_length = 0;
@@ -49,7 +51,10 @@ WidgetScroll::~WidgetScroll()
 	}
 
 	if (track != nullptr)
-		track->RemoveEventListener(EventId::Click, this);
+	{
+		track->RemoveEventListener(EventId::Mousedown, this);
+		track->RemoveEventListener(EventId::Mousemove, this);
+	}
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -103,7 +108,9 @@ bool WidgetScroll::Initialise(Orientation _orientation)
 	bar->AddEventListener(EventId::Drag, this);
 	bar->AddEventListener(EventId::Dragstart, this);
 
-	track->AddEventListener(EventId::Click, this);
+	// The track pages toward the pointer as it's pressed, and again while it's held (Update).
+	track->AddEventListener(EventId::Mousedown, this);
+	track->AddEventListener(EventId::Mousemove, this);
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -117,12 +124,33 @@ bool WidgetScroll::Initialise(Orientation _orientation)
 
 void WidgetScroll::Update()
 {
-	if (!std::any_of(std::begin(arrow_timers), std::end(arrow_timers), [](float timer) { return timer > 0; }))
+	// The track is held until the button is released, wherever the pointer is then: the context keeps it active
+	// until the release.
+	if (track_timer > 0 && !track->IsPseudoClassSet("active"))
+		track_timer = -1;
+
+	if (!std::any_of(std::begin(arrow_timers), std::end(arrow_timers), [](float timer) { return timer > 0; }) &&
+		track_timer <= 0)
 		return;
 
 	const double current_time = Clock::GetElapsedTime();
 	const float delta_time = float(current_time - last_update_time);
 	last_update_time = current_time;
+
+	// While the pointer is over the track; held elsewhere, it waits for the pointer to come back.
+	if (track_timer > 0)
+	{
+		track_timer -= delta_time;
+		while (track_timer <= 0)
+		{
+			track_timer += DEFAULT_REPEAT_PERIOD;
+			if (track->IsPseudoClassSet("hover"))
+				PageTowardPointer();
+		}
+
+		if (Context* ctx = parent->GetContext())
+			ctx->RequestNextUpdate(track_timer);
+	}
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -376,24 +404,14 @@ void WidgetScroll::ProcessEvent(Event& event)
 	}
 	else if (event.GetTargetElement() == track)
 	{
-		if (event == EventId::Click)
-		{
-			float click_position = 0.f;
-			if (orientation == HORIZONTAL)
-			{
-				float mouse_position = event.GetParameter("mouse_x", 0.f);
-				click_position = (mouse_position - track->GetAbsoluteOffset().x) / track->GetBox().GetSize().x;
-			}
-			else
-			{
-				float mouse_position = event.GetParameter<float>("mouse_y", 0);
-				click_position = (mouse_position - track->GetAbsoluteOffset().y) / track->GetBox().GetSize().y;
-			}
+		if (event == EventId::Mousedown || event == EventId::Mousemove)
+			track_pointer = event.GetParameter(orientation == HORIZONTAL ? "mouse_x" : "mouse_y", 0.f);
 
-			if (click_position <= bar_position)
-				ScrollPageUp();
-			else
-				ScrollPageDown();
+		if (event == EventId::Mousedown && event.GetParameter("button", 0) == 0)
+		{
+			track_timer = DEFAULT_REPEAT_DELAY;
+			last_update_time = Clock::GetElapsedTime();
+			PageTowardPointer();
 		}
 	}
 
@@ -466,14 +484,27 @@ void WidgetScroll::ScrollLineUp()
 	Scroll(-SCROLL_LINE_LENGTH * ElementUtilities::GetDensityIndependentPixelRatio(parent), ScrollBehavior::Auto);
 }
 
+void WidgetScroll::PageTowardPointer()
+{
+	const int axis = orientation == HORIZONTAL ? 0 : 1;
+	const float bar_start = bar->GetAbsoluteOffset()[axis];
+	const float bar_end = bar_start + bar->GetBox().GetSize(BoxArea::Border)[axis];
+
+	if (track_pointer < bar_start)
+		ScrollPageUp();
+	else if (track_pointer > bar_end)
+		ScrollPageDown();
+}
+
+// Instantly, as the track's repeats would otherwise each restart the last page's smooth scroll from where it had got to.
 void WidgetScroll::ScrollPageDown()
 {
-	Scroll(SCROLL_PAGE_FACTOR * bar_length, ScrollBehavior::Auto);
+	Scroll(SCROLL_PAGE_FACTOR * bar_length, ScrollBehavior::Instant);
 }
 
 void WidgetScroll::ScrollPageUp()
 {
-	Scroll(-SCROLL_PAGE_FACTOR * bar_length, ScrollBehavior::Auto);
+	Scroll(-SCROLL_PAGE_FACTOR * bar_length, ScrollBehavior::Instant);
 }
 
 void WidgetScroll::Scroll(float distance, ScrollBehavior behavior)

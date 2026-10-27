@@ -68,6 +68,8 @@ private:
 	void ScrollLineUp();
 	void ScrollPageDown();
 	void ScrollPageUp();
+	// Scrolls a page toward the pointer held on the track, until the bar reaches it.
+	void PageTowardPointer();
 
 	// Scrolls the parent element by the given distance.
 	void Scroll(float distance, ScrollBehavior behavior);
@@ -90,6 +92,10 @@ private:
 
 	// Set to the auto-repeat timer if either of the arrow buttons have been pressed, -1 if they haven't.
 	float arrow_timers[2];
+	// Set to the auto-repeat timer while the track is held, -1 when it isn't, and where the pointer last was on it,
+	// along the track.
+	float track_timer;
+	float track_pointer;
 	double last_update_time;
 
 	float track_length;
