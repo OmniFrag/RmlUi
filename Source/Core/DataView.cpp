@@ -87,6 +87,7 @@ bool DataViews::Update(DataModel& model, const DirtyVariables& dirty_variables)
 
 		if (!views_to_add.empty())
 		{
+			dirty_path_views.clear();
 			views.reserve(views.size() + views_to_add.size());
 			for (auto&& view : views_to_add)
 			{
@@ -101,20 +102,27 @@ bool DataViews::Update(DataModel& model, const DirtyVariables& dirty_variables)
 
 		for (const String& variable_name : dirty_variables)
 		{
-			// The views reading at the dirty path or below it ("player" and "player.health" for "player")...
-			for (auto it = name_view_map.lower_bound(variable_name);
-				it != name_view_map.end() && it->first.compare(0, variable_name.size(), variable_name) == 0; ++it)
+			auto cached = dirty_path_views.find(variable_name);
+			if (cached == dirty_path_views.end())
 			{
-				if (it->first.size() == variable_name.size() || it->first[variable_name.size()] == '.')
-					dirty_views.push_back(it->second);
+				Vector<DataView*> found;
+				// The views reading at the dirty path or below it ("player" and "player.health" for "player")...
+				for (auto it = name_view_map.lower_bound(variable_name);
+					it != name_view_map.end() && it->first.compare(0, variable_name.size(), variable_name) == 0; ++it)
+				{
+					if (it->first.size() == variable_name.size() || it->first[variable_name.size()] == '.')
+						found.push_back(it->second);
+				}
+				// ...and those reading what holds it ("vote" for "vote.team"), whose value includes it.
+				for (size_t dot = variable_name.rfind('.'); dot != String::npos && dot > 0; dot = variable_name.rfind('.', dot - 1))
+				{
+					auto pair = name_view_map.equal_range(std::string_view(variable_name).substr(0, dot));
+					for (auto it = pair.first; it != pair.second; ++it)
+						found.push_back(it->second);
+				}
+				cached = dirty_path_views.emplace(variable_name, std::move(found)).first;
 			}
-			// ...and those reading what holds it ("vote" for "vote.team"), whose value includes it.
-			for (size_t dot = variable_name.rfind('.'); dot != String::npos && dot > 0; dot = variable_name.rfind('.', dot - 1))
-			{
-				auto pair = name_view_map.equal_range(std::string_view(variable_name).substr(0, dot));
-				for (auto it = pair.first; it != pair.second; ++it)
-					dirty_views.push_back(it->second);
-			}
+			dirty_views.insert(dirty_views.end(), cached->second.begin(), cached->second.end());
 		}
 
 		// Remove duplicate entries
@@ -139,6 +147,7 @@ bool DataViews::Update(DataModel& model, const DirtyVariables& dirty_variables)
 		// Destroy views marked for destruction, found by the paths they're kept by
 		if (!views_to_remove.empty())
 		{
+			dirty_path_views.clear();
 			for (const auto& view : views_to_remove)
 			{
 				for (const String& variable_name : view->GetVariableNameList())

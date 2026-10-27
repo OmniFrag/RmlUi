@@ -106,6 +106,10 @@ private:
 	// and above it.
 	using NameViewMap = std::multimap<String, DataView*, std::less<>>;
 	NameViewMap name_view_map;
+
+	// The views each dirty path found in name_view_map, kept until a view is added or removed, as most frames dirty the
+	// same few paths, most of which no view reads.
+	UnorderedMap<String, Vector<DataView*>> dirty_path_views;
 };
 
 // The path a data address reads, which its view is kept by: its names up to its first index, joined by dots, as in
