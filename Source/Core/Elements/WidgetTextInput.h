@@ -261,6 +261,8 @@ private:
 
 	bool ideal_cursor_position_to_the_right_of_cursor;
 	bool cancel_next_drag;
+	// When the last double click came, for a third click to select all; negative for none.
+	double double_click_time = -1;
 	bool force_formatting_on_next_layout;
 
 	// Selection. The start and end indices of the selection are in absolute coordinates.

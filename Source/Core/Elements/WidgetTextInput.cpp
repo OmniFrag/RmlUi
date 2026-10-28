@@ -700,6 +700,15 @@ void WidgetTextInput::ProcessEvent(Event& event)
 		//-fallthrough
 	case EventId::Mousedown:
 	{
+		// A third click soon after a double click selects all; the left button's only.
+		if (event == EventId::Mousedown && event.GetTargetElement() == parent && double_click_time >= 0 &&
+			event.GetParameter<int>("button", 0) == 0 && GetSystemInterface()->GetElapsedTime() - double_click_time < 0.5)
+		{
+			double_click_time = -1;
+			Select();
+			cancel_next_drag = true;
+			break;
+		}
 		if (event.GetTargetElement() == parent)
 		{
 			Vector2f mouse_position = Vector2f(event.GetParameter<float>("mouse_x", 0), event.GetParameter<float>("mouse_y", 0));
@@ -732,6 +741,7 @@ void WidgetTextInput::ProcessEvent(Event& event)
 			else
 				ExpandSelection();
 			cancel_next_drag = true;
+			double_click_time = GetSystemInterface()->GetElapsedTime();
 		}
 	}
 	break;
