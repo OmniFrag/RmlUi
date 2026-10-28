@@ -215,6 +215,19 @@ private:
 	/// Copies the selection (if any) to the clipboard.
 	void CopySelection();
 
+	/// A change's undo step: the value and the selection, in characters, as they were before it.
+	struct UndoStep {
+		String value;
+		int selection_start = 0, selection_end = 0;
+	};
+	/// The value and selection as they are now.
+	UndoStep CurrentUndoStep() const;
+	/// Remembers the step before a change, clearing what can be redone. Typing goes into one step until a pause or the
+	/// end of a word.
+	void PushUndoStep(UndoStep step, bool typing, bool ends_word);
+	/// Undoes or redoes the last change, the other way's step remembered; false with none.
+	bool UndoRedo(bool redo);
+
 	/// Split one line of text into three parts, based on the current selection.
 	/// @param[out] pre_selection The section of unselected text before any selected text on the line.
 	/// @param[out] selection The section of selected text on the line.
@@ -263,6 +276,11 @@ private:
 	bool cancel_next_drag;
 	// When the last double click came, for a third click to select all; negative for none.
 	double double_click_time = -1;
+
+	// The changes to undo and to redo, the last at the back, and when typing last went into the last undo step;
+	// negative while typing would start a new one.
+	Vector<UndoStep> undo_steps, redo_steps;
+	double typing_time = -1;
 	bool force_formatting_on_next_layout;
 
 	// Selection. The start and end indices of the selection are in absolute coordinates.

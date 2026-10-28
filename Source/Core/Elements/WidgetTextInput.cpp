@@ -594,6 +594,19 @@ void WidgetTextInput::ProcessEvent(Event& event)
 		}
 		break;
 
+		case Input::KI_Z:
+		case Input::KI_Y:
+		{
+			// Ctrl+Z undoes; Ctrl+Y or Ctrl+Shift+Z redoes.
+			if (ctrl && !alt && UndoRedo(key_identifier == Input::KI_Y || shift))
+			{
+				OnLayout();
+				MoveToCursor();
+				ShowCursor(true);
+			}
+		}
+		break;
+
 		case Input::KI_C:
 		{
 			if (ctrl && selection_length > 0)
@@ -606,6 +619,7 @@ void WidgetTextInput::ProcessEvent(Event& event)
 			if (ctrl && selection_length > 0 && !IsPassword())
 			{
 				CopySelection();
+				PushUndoStep(CurrentUndoStep(), false, false);
 				DeleteSelection();
 				DispatchChangeEvent();
 				OnLayout();
@@ -754,6 +768,10 @@ bool WidgetTextInput::AddCharacters(String string)
 {
 	SanitizeValue(string);
 
+	// A character typed is typing, a word's end at a space; more at once (a paste) is a step of its own.
+	if (!string.empty() && (selection_length > 0 || max_length < 0 || GetLength() < max_length))
+		PushUndoStep(CurrentUndoStep(), StringUtilities::LengthUTF8(string) == 1, StringUtilities::IsWhitespace(string[0]));
+
 	if (selection_length > 0)
 		DeleteSelection();
 
@@ -781,6 +799,7 @@ bool WidgetTextInput::AddCharacters(String string)
 bool WidgetTextInput::DeleteCharacters(CursorMovement direction)
 {
 	bool out_of_bounds;
+	UndoStep before = CurrentUndoStep();
 	// We set a selection of characters according to direction, and then delete it.
 	// If we already have a selection, we delete that first.
 	if (selection_length <= 0)
@@ -788,6 +807,7 @@ bool WidgetTextInput::DeleteCharacters(CursorMovement direction)
 
 	if (selection_length > 0)
 	{
+		PushUndoStep(std::move(before), false, false);
 		DeleteSelection();
 		DispatchChangeEvent();
 
@@ -795,6 +815,43 @@ bool WidgetTextInput::DeleteCharacters(CursorMovement direction)
 	}
 
 	return false;
+}
+
+WidgetTextInput::UndoStep WidgetTextInput::CurrentUndoStep() const
+{
+	UndoStep step;
+	step.value = GetAttributeValue();
+	GetSelection(&step.selection_start, &step.selection_end, nullptr);
+	return step;
+}
+
+void WidgetTextInput::PushUndoStep(UndoStep step, bool typing, bool ends_word)
+{
+	const double now = GetSystemInterface()->GetElapsedTime();
+	const bool coalesce = typing && typing_time >= 0 && now - typing_time < 1.0;
+	typing_time = typing && !ends_word ? now : -1;
+	if (coalesce)
+		return;
+	undo_steps.push_back(std::move(step));
+	if (undo_steps.size() > 100)
+		undo_steps.erase(undo_steps.begin());
+	redo_steps.clear();
+}
+
+bool WidgetTextInput::UndoRedo(bool redo)
+{
+	Vector<UndoStep>& from = redo ? redo_steps : undo_steps;
+	Vector<UndoStep>& to = redo ? undo_steps : redo_steps;
+	if (from.empty())
+		return false;
+	to.push_back(CurrentUndoStep());
+	UndoStep step = std::move(from.back());
+	from.pop_back();
+	typing_time = -1;
+	parent->SetAttribute("value", step.value);
+	SetSelectionRange(step.selection_start, step.selection_end);
+	DispatchChangeEvent();
+	return true;
 }
 
 void WidgetTextInput::CopySelection()
