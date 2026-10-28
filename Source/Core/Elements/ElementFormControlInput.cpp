@@ -1,4 +1,5 @@
 #include "../../../Include/RmlUi/Core/Elements/ElementFormControlInput.h"
+#include "../../../Include/RmlUi/Core/Context.h"
 #include "../../../Include/RmlUi/Core/Event.h"
 #include "InputTypeButton.h"
 #include "InputTypeCheckbox.h"
@@ -99,6 +100,15 @@ void ElementFormControlInput::OnAttributeChange(const ElementAttributes& changed
 
 	if (!type || (!new_type_name.empty() && new_type_name != type_name))
 	{
+		// A focused input switched between text and password (a password shown, or hidden again) keeps its focus and
+		// its selection: its new type hears the focus it would otherwise miss.
+		const bool text_kinds = type && (type_name == "text" || type_name == "password") &&
+			(new_type_name == "text" || new_type_name == "password");
+		const bool keep_focus = text_kinds && GetContext() && GetContext()->GetFocusElement() == this;
+		int selection_start = 0, selection_end = 0;
+		if (keep_focus)
+			type->GetSelection(&selection_start, &selection_end, nullptr);
+
 		// Reset the existing type before constructing a new one. This ensures the old type removes properties and event
 		// listeners attached to this element, so it does not interfere with new ones being attached by the new type.
 		type.reset();
@@ -127,6 +137,13 @@ void ElementFormControlInput::OnAttributeChange(const ElementAttributes& changed
 		type_name = new_type_name;
 
 		DirtyLayout();
+
+		if (keep_focus)
+		{
+			Dictionary parameters;
+			DispatchEvent(EventId::Focus, parameters);
+			type->SetSelectionRange(selection_start, selection_end);
+		}
 	}
 
 	RMLUI_ASSERT(type);

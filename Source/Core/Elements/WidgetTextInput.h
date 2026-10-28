@@ -128,6 +128,9 @@ protected:
 
 	/// Returns true if the text input element is currently focused.
 	bool IsFocused() const;
+	/// Returns true if the text is hidden as it's typed (a password): its selection is never copied, and a double
+	/// click selects all of it, as its words can't be seen.
+	virtual bool IsPassword() const { return false; }
 
 	/// Dispatches a change event to the widget's element.
 	void DispatchChangeEvent(bool linebreak = false);

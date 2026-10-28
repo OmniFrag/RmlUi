@@ -8,6 +8,8 @@ class WidgetTextInputSingleLinePassword : public WidgetTextInputSingleLine {
 public:
 	WidgetTextInputSingleLinePassword(ElementFormControl* parent);
 
+	bool IsPassword() const override { return true; }
+
 protected:
 	void TransformValue(String& value) override;
 

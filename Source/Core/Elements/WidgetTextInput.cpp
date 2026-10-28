@@ -603,7 +603,7 @@ void WidgetTextInput::ProcessEvent(Event& event)
 
 		case Input::KI_X:
 		{
-			if (ctrl && selection_length > 0)
+			if (ctrl && selection_length > 0 && !IsPassword())
 			{
 				CopySelection();
 				DeleteSelection();
@@ -727,7 +727,10 @@ void WidgetTextInput::ProcessEvent(Event& event)
 	{
 		if (event.GetTargetElement() == parent)
 		{
-			ExpandSelection();
+			if (IsPassword())
+				Select();
+			else
+				ExpandSelection();
 			cancel_next_drag = true;
 		}
 	}
@@ -786,6 +789,8 @@ bool WidgetTextInput::DeleteCharacters(CursorMovement direction)
 
 void WidgetTextInput::CopySelection()
 {
+	if (IsPassword())
+		return;
 	const String& value = GetValue();
 	const String snippet = value.substr(Math::Min((size_t)selection_begin_index, (size_t)value.size()), (size_t)selection_length);
 	GetSystemInterface()->SetClipboardText(snippet);
