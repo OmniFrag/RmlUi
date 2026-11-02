@@ -32,6 +32,12 @@ void RenderInterface::CompositeLayers(LayerHandle /*source*/, LayerHandle /*dest
 	Span<const CompiledFilterHandle> /*filters*/)
 {}
 
+bool RenderInterface::CompositeLayersWithInfo(LayerHandle /*source*/, LayerHandle /*destination*/, BlendMode /*blend_mode*/,
+	Span<const CompiledFilterHandle> /*filters*/, const CompositeInfo& /*info*/)
+{
+	return false;
+}
+
 void RenderInterface::PopLayer() {}
 
 TextureHandle RenderInterface::SaveLayerAsTexture()

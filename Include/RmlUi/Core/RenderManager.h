@@ -77,6 +77,8 @@ public:
 
 	LayerHandle PushLayer();
 	void CompositeLayers(LayerHandle source, LayerHandle destination, BlendMode blend_mode, Span<const CompiledFilterHandle> filters);
+	bool CompositeLayersWithInfo(LayerHandle source, LayerHandle destination, BlendMode blend_mode, Span<const CompiledFilterHandle> filters,
+		const CompositeInfo& info);
 	void PopLayer();
 
 	LayerHandle GetTopLayer() const;

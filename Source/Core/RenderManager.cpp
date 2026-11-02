@@ -307,6 +307,14 @@ void RenderManager::CompositeLayers(LayerHandle source, LayerHandle destination,
 	render_interface->CompositeLayers(source, destination, blend_mode, filters);
 }
 
+bool RenderManager::CompositeLayersWithInfo(LayerHandle source, LayerHandle destination, BlendMode blend_mode,
+	Span<const CompiledFilterHandle> filters, const CompositeInfo& info)
+{
+	RMLUI_ASSERT(source == 0 || std::find(render_stack.begin(), render_stack.end(), source) != render_stack.end());
+	RMLUI_ASSERT(destination == 0 || std::find(render_stack.begin(), render_stack.end(), destination) != render_stack.end());
+	return render_interface->CompositeLayersWithInfo(source, destination, blend_mode, filters, info);
+}
+
 void RenderManager::PopLayer()
 {
 	RMLUI_ASSERT(!render_stack.empty());

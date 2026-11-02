@@ -16,6 +16,9 @@ enum class BlendMode {
 	Blend,   // Normal alpha blending.
 	Replace, // Replace the destination colors from the source.
 };
+struct CompositeInfo {
+	Rectanglei input_region; // The region the filters may read from the source, in window pixels.
+};
 
 /**
     The abstract base class for application-specific rendering implementation. Your application must provide a concrete
@@ -103,6 +106,14 @@ public:
 	/// @param[in] filters A list of compiled filters which should be applied before blending.
 	/// @note Source and destination can reference the same layer.
 	virtual void CompositeLayers(LayerHandle source, LayerHandle destination, BlendMode blend_mode, Span<const CompiledFilterHandle> filters);
+	/// Composite two layers as above, with the filters reading from a region apart from the one written.
+	/// @param[in] info The region the filters may read from the source. The result is written only within the current
+	/// scissor region and clip mask, as above.
+	/// @return True if the layers were composited. False if this isn't supported, in which case RmlUi composites through
+	/// a temporary layer instead. The default returns false.
+	/// @note Lets a backdrop filter composite onto the layer it reads from, without a temporary layer.
+	virtual bool CompositeLayersWithInfo(LayerHandle source, LayerHandle destination, BlendMode blend_mode, Span<const CompiledFilterHandle> filters,
+		const CompositeInfo& info);
 	/// Called by RmlUi when it wants to pop the render layer stack, setting the new top layer as the render target.
 	virtual void PopLayer();
 

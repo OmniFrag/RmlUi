@@ -2,6 +2,7 @@
 #include "../Common/TestsShell.h"
 #include <RmlUi/Core/CompiledFilterShader.h>
 #include <RmlUi/Core/Context.h>
+#include <RmlUi/Core/Core.h>
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/ElementDocument.h>
 #include <RmlUi/Core/Factory.h>
@@ -150,6 +151,90 @@ TEST_CASE("filter")
 
 	CHECK(counters.compile_filter == expected_compiled_filters.size());
 	CHECK(counters.release_filter == expected_compiled_filters.size());
+
+	TestsShell::ShutdownShell();
+}
+
+// Records the layer calls, and composites with info only when told to.
+class LayerRecordingRenderInterface : public TestsRenderInterface {
+public:
+	LayerHandle PushLayer() override
+	{
+		calls.push_back("push");
+		return LayerHandle(1);
+	}
+	void CompositeLayers(LayerHandle source, LayerHandle destination, BlendMode /*blend_mode*/,
+		Span<const CompiledFilterHandle> filters) override
+	{
+		calls.push_back(CreateString("composite %d>%d, %d filters", int(source), int(destination), int(filters.size())));
+	}
+	bool CompositeLayersWithInfo(LayerHandle source, LayerHandle destination, BlendMode /*blend_mode*/,
+		Span<const CompiledFilterHandle> filters, const CompositeInfo& info) override
+	{
+		if (!support_info)
+			return false;
+		const Rectanglei& input = info.input_region;
+		calls.push_back(CreateString("composite %d>%d, %d filters, from %d,%d %dx%d", int(source), int(destination), int(filters.size()),
+			input.Left(), input.Top(), input.Width(), input.Height()));
+		return true;
+	}
+	void PopLayer() override
+	{
+		calls.push_back("pop");
+	}
+
+	bool support_info = false;
+	StringList calls;
+};
+
+static const String document_backdrop_rml = R"(
+<rml>
+<head>
+	<style>
+		div {
+			position: absolute;
+			left: 100px;
+			top: 50px;
+			width: 200px;
+			height: 100px;
+			backdrop-filter: blur(10px);
+		}
+	</style>
+</head>
+
+<body>
+	<div/>
+</body>
+</rml>
+)";
+
+TEST_CASE("filter.backdrop")
+{
+	REQUIRE(TestsShell::GetContext());
+
+	for (const bool support_info : {true, false})
+	{
+		INFO("Composite with info: ", support_info);
+		LayerRecordingRenderInterface render_interface;
+		render_interface.support_info = support_info;
+
+		Context* context = Rml::CreateContext("backdrop", Vector2i(800, 600), &render_interface);
+		REQUIRE(context);
+		ElementDocument* document = context->LoadDocumentFromMemory(document_backdrop_rml);
+		document->Show();
+		context->Update();
+		context->Render();
+
+		// The blur reads three sigma past the border box. With info, the window is composited onto itself in one step,
+		// reading from that region; without it, through a temporary layer.
+		if (support_info)
+			CHECK(render_interface.calls == StringList{"composite 0>0, 1 filters, from 70,20 260x160"});
+		else
+			CHECK(render_interface.calls == StringList{"push", "composite 0>1, 1 filters", "composite 1>0, 0 filters", "pop"});
+
+		Rml::RemoveContext("backdrop");
+		Rml::ReleaseRenderManagers();
+	}
 
 	TestsShell::ShutdownShell();
 }
