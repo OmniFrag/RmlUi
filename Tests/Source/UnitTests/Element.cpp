@@ -579,3 +579,146 @@ TEST_CASE("Element.TransformStateAfterVisibilityChange")
 	document->Close();
 	TestsShell::ShutdownShell();
 }
+
+TEST_CASE("Element.IsPointWithinElement.BorderRadius")
+{
+	const String document_rml = R"(
+<rml>
+<head>
+	<link type="text/rcss" href="/assets/rml.rcss"/>
+	<style>
+		body { width: 800px; height: 600px; }
+		div { position: absolute; top: 100px; }
+		#square { left: 0px; width: 100px; height: 100px; }
+		#pill { left: 200px; width: 200px; height: 100px; border-radius: 50px; }
+		#oversized { left: 500px; width: 100px; height: 60px; border-radius: 200px; }
+		#bordered { left: 650px; width: 100px; height: 60px; border: 10px #fff; border-radius: 40px; }
+		#rounded_clip { left: 0px; top: 250px; width: 200px; height: 100px; border-radius: 50px; overflow: hidden; }
+		#filler, #bordered_filler { position: static; display: block; width: 200px; height: 100px; }
+		#bordered_clip { left: 250px; top: 250px; width: 200px; height: 100px; border: 10px #fff; border-radius: 60px; overflow: hidden; }
+		#transformed_clip { left: 500px; top: 250px; width: 100px; height: 100px; overflow: hidden; transform: translateX(100px); }
+		#overflowing { position: static; display: block; width: 200px; height: 100px; }
+		#plain_clip { left: 0px; top: 400px; width: 100px; height: 100px; overflow: hidden; }
+		#moved { position: static; display: block; width: 150px; height: 100px; transform: translateX(60px); }
+	</style>
+</head>
+<body>
+	<div id="square"/>
+	<div id="pill"/>
+	<div id="oversized"/>
+	<div id="bordered"/>
+	<div id="rounded_clip"><div id="filler"/></div>
+	<div id="bordered_clip"><div id="bordered_filler"/></div>
+	<div id="transformed_clip"><div id="overflowing"/></div>
+	<div id="plain_clip"><div id="moved"/></div>
+</body>
+</rml>
+)";
+
+	Context* context = TestsShell::GetContext();
+	ElementDocument* document = context->LoadDocumentFromMemory(document_rml);
+	REQUIRE(document);
+	document->Show();
+	context->Update();
+	context->Render();
+
+	auto IsWithin = [](Element* element, Vector2f point_from_corner) {
+		return element->IsPointWithinElement(element->GetAbsoluteOffset(BoxArea::Border) + point_from_corner);
+	};
+
+	SUBCASE("Square corners")
+	{
+		Element* square = document->GetElementById("square");
+		CHECK(IsWithin(square, {1.f, 1.f}));
+		CHECK(IsWithin(square, {99.f, 99.f}));
+		CHECK_FALSE(IsWithin(square, {101.f, 50.f}));
+	}
+
+	SUBCASE("Rounded corners")
+	{
+		// The left curves are centered at (50, 50) and the right ones at (150, 50), all with radius 50.
+		Element* pill = document->GetElementById("pill");
+		CHECK(IsWithin(pill, {100.f, 50.f}));
+		CHECK(IsWithin(pill, {100.f, 1.f}));
+		CHECK(IsWithin(pill, {20.f, 20.f}));
+		CHECK(IsWithin(pill, {180.f, 80.f}));
+		CHECK_FALSE(IsWithin(pill, {5.f, 5.f}));
+		CHECK_FALSE(IsWithin(pill, {195.f, 95.f}));
+
+		// A point in the corner falls through to the element behind.
+		const Vector2f origin = pill->GetAbsoluteOffset(BoxArea::Border);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(5.f, 5.f)) == document);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(100.f, 50.f)) == pill);
+	}
+
+	SUBCASE("Radius larger than the box")
+	{
+		// The radii are scaled down to fit the box, as when drawn: 200px becomes 30px, half the height.
+		Element* oversized = document->GetElementById("oversized");
+		CHECK(IsWithin(oversized, {50.f, 30.f}));
+		CHECK(IsWithin(oversized, {10.f, 10.f}));
+		CHECK(IsWithin(oversized, {99.f, 30.f}));
+		CHECK_FALSE(IsWithin(oversized, {2.f, 2.f}));
+		CHECK_FALSE(IsWithin(oversized, {97.f, 5.f}));
+	}
+
+	SUBCASE("Border")
+	{
+		// Radii are scaled to fit the padding box as when drawn: 40px becomes 30px on this 120x80 border box.
+		Element* bordered = document->GetElementById("bordered");
+		CHECK(IsWithin(bordered, {60.f, 1.f}));
+		CHECK(IsWithin(bordered, {11.f, 11.f}));
+		CHECK_FALSE(IsWithin(bordered, {5.f, 5.f}));
+		CHECK_FALSE(IsWithin(bordered, {116.f, 76.f}));
+	}
+
+	SUBCASE("Clipped by rounded corners")
+	{
+		// A child filling a rounded container that clips its overflow takes no points in the clipped corners.
+		Element* rounded_clip = document->GetElementById("rounded_clip");
+		Element* filler = document->GetElementById("filler");
+		const Vector2f origin = rounded_clip->GetAbsoluteOffset(BoxArea::Border);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(100.f, 50.f)) == filler);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(20.f, 20.f)) == filler);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(5.f, 5.f)) == document);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(195.f, 95.f)) == document);
+	}
+
+	SUBCASE("Clipped by rounded corners with a border")
+	{
+		// The radius becomes 50px to fit the padding box, so the clip's inner curves have radius 40, centered at (50, 50).
+		Element* bordered_clip = document->GetElementById("bordered_clip");
+		Element* bordered_filler = document->GetElementById("bordered_filler");
+		const Vector2f origin = bordered_clip->GetAbsoluteOffset(BoxArea::Border);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(110.f, 60.f)) == bordered_filler);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(25.f, 25.f)) == bordered_filler);
+		// Outside the inner curve, but inside the outer one.
+		CHECK(context->GetElementAtPoint(origin + Vector2f(16.f, 16.f)) == bordered_clip);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(5.f, 5.f)) == document);
+	}
+
+	SUBCASE("Clipped by a transformed container")
+	{
+		// The container is drawn 100px to the right of its layout position, and clips its overflowing child there.
+		Element* transformed_clip = document->GetElementById("transformed_clip");
+		Element* overflowing = document->GetElementById("overflowing");
+		const Vector2f origin = transformed_clip->GetAbsoluteOffset(BoxArea::Border);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(150.f, 50.f)) == overflowing);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(250.f, 50.f)) == document);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(50.f, 50.f)) == document);
+	}
+
+	SUBCASE("Transformed child of a clipping container")
+	{
+		// The child is drawn 60px to the right, and the container's scissor region clips it in window coordinates.
+		Element* plain_clip = document->GetElementById("plain_clip");
+		Element* moved = document->GetElementById("moved");
+		const Vector2f origin = plain_clip->GetAbsoluteOffset(BoxArea::Border);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(80.f, 50.f)) == moved);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(120.f, 50.f)) == document);
+		CHECK(context->GetElementAtPoint(origin + Vector2f(30.f, 50.f)) == plain_clip);
+	}
+
+	document->Close();
+	TestsShell::ShutdownShell();
+}

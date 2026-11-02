@@ -1,6 +1,7 @@
 #include "GeometryBackgroundBorder.h"
 #include "../../Include/RmlUi/Core/Box.h"
 #include "../../Include/RmlUi/Core/Math.h"
+#include "../../Include/RmlUi/Core/RenderBox.h"
 #include <algorithm>
 #include <float.h>
 
@@ -70,6 +71,29 @@ BorderMetrics GeometryBackgroundBorder::ComputeBorderMetrics(Vector2f outer_posi
 	}
 
 	return metrics;
+}
+
+bool GeometryBackgroundBorder::IsPointWithinCorners(const RenderBox& render_box, Vector2f point, bool inner)
+{
+	const BorderMetrics metrics =
+		ComputeBorderMetrics(render_box.GetBorderOffset(), render_box.GetBorderWidths(), render_box.GetFillSize(), render_box.GetBorderRadius());
+
+	for (int corner = 0; corner < 4; corner++)
+	{
+		const Vector2f radii = (inner ? metrics.inner_radii[corner] : Vector2f(metrics.outer_radii[corner]));
+		if (radii.x <= 0.f || radii.y <= 0.f)
+			continue;
+
+		const Vector2f center = metrics.positions_circle_center[corner];
+		const Vector2f to_corner = (inner ? metrics.positions_inner[corner] : metrics.positions_outer[corner]) - center;
+		const Vector2f from_center = point - center;
+		const bool beyond_center = (from_center.x * to_corner.x > 0.f && from_center.y * to_corner.y > 0.f);
+		const Vector2f normalized = {from_center.x / radii.x, from_center.y / radii.y};
+		if (beyond_center && normalized.SquaredMagnitude() > 1.f)
+			return false;
+	}
+
+	return true;
 }
 
 void GeometryBackgroundBorder::DrawBackground(const BorderMetrics& metrics, ColourbPremultiplied color)

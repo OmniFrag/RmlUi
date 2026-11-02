@@ -8,6 +8,7 @@
 
 namespace Rml {
 
+class Element;
 class Geometry;
 class CompiledFilter;
 class CompiledShader;
@@ -20,6 +21,8 @@ struct ClipMaskGeometry {
 	Geometry* geometry;
 	Vector2f absolute_offset;
 	const Matrix4f* transform;
+	// The element whose clip area the geometry covers, if any. Used for hit testing, it doesn't affect rendering.
+	Element* element = nullptr;
 };
 inline bool operator==(const ClipMaskGeometry& a, const ClipMaskGeometry& b)
 {

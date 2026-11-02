@@ -6,6 +6,7 @@
 namespace Rml {
 
 class Box;
+class RenderBox;
 
 // Ordered by top, right, bottom, left.
 using EdgeSizes = Array<float, 4>;
@@ -44,6 +45,13 @@ public:
 	/// @param outer_radii The radius of the outer edge at each corner.
 	/// @return The computed metrics.
 	static BorderMetrics ComputeBorderMetrics(Vector2f outer_position, EdgeSizes edge_sizes, Vector2f inner_size, CornerSizes outer_radii);
+
+	/// Checks a point against the curves of a render box's rounded corners, as drawn.
+	/// @param render_box The render box to test against.
+	/// @param point The point to test, in the same space as the render box.
+	/// @param inner True to test the curves of the inner (fill) area, false for the outer (border) area.
+	/// @return False if the point lies beyond the curve of a rounded corner, otherwise true.
+	static bool IsPointWithinCorners(const RenderBox& render_box, Vector2f point, bool inner);
 
 	// Generate geometry for the background, defined by the inner area of the border metrics.
 	void DrawBackground(const BorderMetrics& metrics, ColourbPremultiplied color);

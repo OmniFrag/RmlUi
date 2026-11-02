@@ -150,7 +150,8 @@ public:
 	/// @return True if the element is a replaced element.
 	bool IsReplaced();
 
-	/// Checks if a given point in screen coordinates lies within the bordered area of this element.
+	/// Checks if a given point in screen coordinates lies within the bordered area of this element. Points outside the
+	/// curve of a rounded corner (border-radius) are not within the element.
 	/// @param[in] point The point to test.
 	/// @return True if the element is within this element, false otherwise.
 	virtual bool IsPointWithinElement(Vector2f point);

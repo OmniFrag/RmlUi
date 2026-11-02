@@ -26,6 +26,7 @@
 #include "ElementStyle.h"
 #include "EventDispatcher.h"
 #include "EventSpecification.h"
+#include "GeometryBackgroundBorder.h"
 #include "Layout/LayoutEngine.h"
 #include "PluginRegistry.h"
 #include "Pool.h"
@@ -553,6 +554,7 @@ bool Element::IsReplaced()
 bool Element::IsPointWithinElement(const Vector2f point)
 {
 	const Vector2f position = GetAbsoluteOffset(BoxArea::Border);
+	const bool has_border_radius = (meta->computed_values.border_radius() != CornerSizes{});
 
 	for (int i = 0; i < GetNumBoxes(); ++i)
 	{
@@ -564,7 +566,10 @@ bool Element::IsPointWithinElement(const Vector2f point)
 		if (point.x >= box_position.x && point.x <= (box_position.x + box_dimensions.x) && point.y >= box_position.y &&
 			point.y <= (box_position.y + box_dimensions.y))
 		{
-			return true;
+			// The background and border are rendered at the rounded offset, so test the corners there.
+			if (!has_border_radius ||
+				GeometryBackgroundBorder::IsPointWithinCorners(GetRenderBox(BoxArea::Padding, i), point - position.Round(), false))
+				return true;
 		}
 	}
 

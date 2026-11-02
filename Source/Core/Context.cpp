@@ -13,6 +13,7 @@
 #include "../../Include/RmlUi/Core/SystemInterface.h"
 #include "DataModel.h"
 #include "EventDispatcher.h"
+#include "GeometryBackgroundBorder.h"
 #include "PluginRegistry.h"
 #include "ScrollController.h"
 #include "StreamFile.h"
@@ -1444,16 +1445,39 @@ Element* Context::GetElementAtPoint(Vector2f point, const Element* ignore_elemen
 		return nullptr;
 
 	// Projection may fail if we have a singular transformation matrix.
+	const Vector2f unprojected_point = point;
 	bool projection_result = element->Project(point);
 
 	// Check if the point is actually within this element.
 	bool within_element = (projection_result && element->IsPointWithinElement(point));
 	if (within_element)
 	{
-		// The element may have been clipped out of view if it overflows an ancestor, so check its clipping region.
+		// The element may have been clipped out of view if it overflows an ancestor, so check its clipping region. The scissor region
+		// only covers ancestors without a transform, so it is in window coordinates.
 		Rectanglei clip_region;
-		if (ElementUtilities::GetClippingRegion(element, clip_region))
-			within_element = clip_region.Contains(Vector2i(point));
+		ClipMaskGeometryList clip_mask_list;
+		if (ElementUtilities::GetClippingRegion(element, clip_region, &clip_mask_list))
+			within_element = clip_region.Contains(Vector2i(unprojected_point));
+
+		// The clip mask, of rounded or transformed elements, clips the element to their clip areas' shapes.
+		for (const ClipMaskGeometry& clip : clip_mask_list)
+		{
+			if (!within_element)
+				break;
+			if (!clip.element)
+				continue;
+
+			Vector2f clip_point = unprojected_point;
+			within_element = clip.element->Project(clip_point);
+			if (!within_element)
+				break;
+
+			const RenderBox render_box = clip.element->GetRenderBox(clip.element->GetClipArea());
+			const Vector2f fill_offset = render_box.GetBorderOffset() + render_box.GetFillOffset();
+			const Vector2f local_point = clip_point - clip.absolute_offset;
+			within_element = Rectanglef::FromPositionSize(fill_offset, render_box.GetFillSize()).Contains(local_point) &&
+				GeometryBackgroundBorder::IsPointWithinCorners(render_box, local_point, true);
+		}
 	}
 
 	if (within_element)
