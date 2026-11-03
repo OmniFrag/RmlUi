@@ -597,6 +597,9 @@ protected:
 
 	/// Updates definition, computed values, and runs OnPropertyChange on this element.
 	void UpdateProperties(float dp_ratio, Vector2f vp_dimensions);
+	/// Updates only the properties and effects of this element and its descendants, for a subtree that isn't displayed.
+	/// A style change can start a transition here, but it isn't advanced until the subtree shows.
+	void UpdateHidden(float dp_ratio, Vector2f vp_dimensions);
 
 	/// Forces the element to generate a local stacking context, regardless of the value of its z-index property.
 	void ForceLocalStackingContext();

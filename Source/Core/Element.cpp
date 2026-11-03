@@ -146,12 +146,18 @@ void Element::Update(float dp_ratio, Vector2f vp_dimensions)
 
 	meta->effects.InstanceEffects();
 
-	// A subtree that isn't displayed isn't laid out or drawn, so it's updated only from the frame it shows, before layout. A
-	// document's own children are, since its layout formats them whatever its display.
+	// A subtree that isn't displayed isn't laid out or drawn, so until it shows, only its properties and effects are updated,
+	// which registers its textures. A document's own children are updated fully, since its layout formats them whatever its
+	// display.
 	if (meta->computed_values.display() != Style::Display::None || this == owner_document)
 	{
 		for (size_t i = 0; i < children.size(); i++)
 			children[i]->Update(dp_ratio, vp_dimensions);
+	}
+	else
+	{
+		for (size_t i = 0; i < children.size(); i++)
+			children[i]->UpdateHidden(dp_ratio, vp_dimensions);
 	}
 
 	if (!animations.empty() && IsVisible(true))
@@ -159,6 +165,15 @@ void Element::Update(float dp_ratio, Vector2f vp_dimensions)
 		if (Context* ctx = GetContext())
 			ctx->RequestNextUpdate(0);
 	}
+}
+
+void Element::UpdateHidden(const float dp_ratio, const Vector2f vp_dimensions)
+{
+	UpdateProperties(dp_ratio, vp_dimensions);
+	meta->effects.InstanceEffects();
+
+	for (size_t i = 0; i < children.size(); i++)
+		children[i]->UpdateHidden(dp_ratio, vp_dimensions);
 }
 
 void Element::UpdateProperties(const float dp_ratio, const Vector2f vp_dimensions)

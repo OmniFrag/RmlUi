@@ -6,6 +6,7 @@
 #include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/ElementDocument.h>
+#include <RmlUi/Core/ElementInstancer.h>
 #include <RmlUi/Core/ElementScroll.h>
 #include <RmlUi/Core/Factory.h>
 #include <doctest.h>
@@ -718,6 +719,81 @@ TEST_CASE("Element.IsPointWithinElement.BorderRadius")
 		CHECK(context->GetElementAtPoint(origin + Vector2f(120.f, 50.f)) == document);
 		CHECK(context->GetElementAtPoint(origin + Vector2f(30.f, 50.f)) == plain_clip);
 	}
+
+	document->Close();
+	TestsShell::ShutdownShell();
+}
+
+// Counts its own updates.
+class ElementCountingUpdates : public Element {
+public:
+	ElementCountingUpdates(const String& tag) : Element(tag) {}
+	int num_updates = 0;
+
+protected:
+	void OnUpdate() override { num_updates += 1; }
+};
+
+static const String document_hidden_update_rml = R"(
+<rml>
+<head>
+	<style>
+		#panel { display: none; }
+		#panel.shown { display: block; }
+		counter { display: block; height: 10px; opacity: 0; transition: opacity 1s linear-in-out; }
+		counter.on { opacity: 1; }
+	</style>
+</head>
+<body>
+	<div id="panel"><counter id="counter"/></div>
+</body>
+</rml>
+)";
+
+TEST_CASE("Element.UpdateWhileHidden")
+{
+	TestsSystemInterface* system_interface = TestsShell::GetTestsSystemInterface();
+	Context* context = TestsShell::GetContext();
+	REQUIRE(context);
+	system_interface->SetManualTime(0.0);
+
+	ElementInstancerGeneric<ElementCountingUpdates> instancer;
+	Factory::RegisterElementInstancer("counter", &instancer);
+
+	ElementDocument* document = context->LoadDocumentFromMemory(document_hidden_update_rml);
+	REQUIRE(document);
+	document->Show();
+	Element* panel = document->GetElementById("panel");
+	auto counter = static_cast<ElementCountingUpdates*>(document->GetElementById("counter"));
+	REQUIRE(counter);
+
+	// Under a hidden element, properties are computed, so a style change starts a transition. But the element isn't otherwise
+	// updated, and the transition isn't advanced.
+	counter->SetClass("on", true);
+	for (int i = 1; i <= 20; i++)
+	{
+		system_interface->SetManualTime(0.1 * i);
+		context->Update();
+	}
+	CHECK(counter->num_updates == 0);
+	CHECK(counter->GetProperty<float>("opacity") == 0.f);
+
+	// Once shown, it's updated, and the transition plays: an animation's clock advances at most 0.1 s an update, so it picks
+	// up near its start rather than jumping to its end.
+	panel->SetClass("shown", true);
+	system_interface->SetManualTime(2.1);
+	context->Update();
+	CHECK(counter->num_updates > 0);
+	const float opacity_on_show = counter->GetProperty<float>("opacity");
+	CHECK(opacity_on_show > 0.f);
+	CHECK(opacity_on_show < 0.5f);
+
+	for (int i = 1; i <= 10; i++)
+	{
+		system_interface->SetManualTime(2.1 + 0.1 * i);
+		context->Update();
+	}
+	CHECK(counter->GetProperty<float>("opacity") == 1.f);
 
 	document->Close();
 	TestsShell::ShutdownShell();
