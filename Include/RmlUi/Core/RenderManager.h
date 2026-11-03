@@ -23,10 +23,14 @@ struct ClipMaskGeometry {
 	const Matrix4f* transform;
 	// The element whose clip area the geometry covers, if any. Used for hit testing, it doesn't affect rendering.
 	Element* element = nullptr;
+	// The geometry as a rounded rectangle, relative to the absolute offset, when it is one.
+	bool has_shape = false;
+	ClipShape shape = {};
 };
 inline bool operator==(const ClipMaskGeometry& a, const ClipMaskGeometry& b)
 {
-	return a.operation == b.operation && a.geometry == b.geometry && a.absolute_offset == b.absolute_offset && a.transform == b.transform;
+	return a.operation == b.operation && a.geometry == b.geometry && a.absolute_offset == b.absolute_offset && a.transform == b.transform &&
+		a.has_shape == b.has_shape && a.shape == b.shape;
 }
 inline bool operator!=(const ClipMaskGeometry& a, const ClipMaskGeometry& b)
 {

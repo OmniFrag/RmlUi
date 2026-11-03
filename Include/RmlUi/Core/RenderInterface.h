@@ -19,6 +19,16 @@ enum class BlendMode {
 struct CompositeInfo {
 	Rectanglei input_region; // The region the filters may read from the source, in window pixels.
 };
+struct ClipShape {
+	Rectanglef rectangle;
+	// The horizontal and vertical radius of each corner, ordered by top-left, top-right, bottom-right, bottom-left.
+	// Zero for a sharp corner.
+	Array<Vector2f, 4> radii;
+};
+inline bool operator==(const ClipShape& a, const ClipShape& b)
+{
+	return a.rectangle == b.rectangle && a.radii == b.radii;
+}
 
 /**
     The abstract base class for application-specific rendering implementation. Your application must provide a concrete
@@ -87,6 +97,16 @@ public:
 	/// @note The clip mask applies exclusively to all other functions that render with a geometry handle, in addition
 	/// to the `CompositeLayers` function while rendering to its destination.
 	virtual void RenderToClipMask(ClipMaskOperation operation, CompiledGeometryHandle geometry, Vector2f translation);
+	/// Called by RmlUi in place of RenderToClipMask when the geometry is a rounded rectangle, so that the renderer can clip
+	/// to the shape itself, e.g. with anti-aliased edges, rather than render the geometry to the clip mask.
+	/// @param[in] operation Describes how the shape should affect the clip.
+	/// @param[in] geometry The shape's compiled geometry, as RenderToClipMask would take it.
+	/// @param[in] shape The rounded rectangle, which the geometry covers.
+	/// @param[in] translation The translation to apply to the shape, and to the geometry.
+	/// @return True if the renderer clips to the shape, until the next call to EnableClipMask. False to decline it, upon
+	/// which RmlUi calls EnableClipMask again and renders the geometry of all the clip's elements to the clip mask.
+	/// @note The current transform applies to the shape as it would to the geometry.
+	virtual bool RenderToClipShape(ClipMaskOperation operation, CompiledGeometryHandle geometry, const ClipShape& shape, Vector2f translation);
 
 	/// Called by RmlUi when it wants the renderer to use a new transform matrix.
 	/// @param[in] transform The new transform to apply, or nullptr if no transform applies to the current element.

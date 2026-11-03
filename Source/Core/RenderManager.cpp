@@ -162,12 +162,34 @@ void RenderManager::ApplyClipMask(const ClipMaskGeometryList& clip_elements)
 	{
 		const Matrix4f initial_transform = state.transform;
 
+		// Offer each element's rounded rectangle to the renderer as a shape. If it declines any, render all the geometry to
+		// the clip mask instead.
+		size_t num_applied = 0;
+		bool shape_applied = false;
 		for (const ClipMaskGeometry& element_clip : clip_elements)
 		{
 			RMLUI_ASSERT(element_clip.geometry->render_manager == this);
 			SetTransform(element_clip.transform);
-			if (CompiledGeometryHandle handle = GetCompiledGeometryHandle(element_clip.geometry->resource_handle))
-				render_interface->RenderToClipMask(element_clip.operation, handle, element_clip.absolute_offset);
+			const CompiledGeometryHandle handle = GetCompiledGeometryHandle(element_clip.geometry->resource_handle);
+			if (handle &&
+				!(element_clip.has_shape &&
+					render_interface->RenderToClipShape(element_clip.operation, handle, element_clip.shape, element_clip.absolute_offset)))
+				break;
+			shape_applied |= (handle != 0);
+			num_applied += 1;
+		}
+
+		if (num_applied < clip_elements.size())
+		{
+			if (shape_applied)
+				render_interface->EnableClipMask(true);
+
+			for (const ClipMaskGeometry& element_clip : clip_elements)
+			{
+				SetTransform(element_clip.transform);
+				if (CompiledGeometryHandle handle = GetCompiledGeometryHandle(element_clip.geometry->resource_handle))
+					render_interface->RenderToClipMask(element_clip.operation, handle, element_clip.absolute_offset);
+			}
 		}
 
 		// Apply the initially set transform in case it was changed.

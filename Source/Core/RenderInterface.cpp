@@ -21,6 +21,12 @@ void RenderInterface::EnableClipMask(bool /*enable*/) {}
 
 void RenderInterface::RenderToClipMask(ClipMaskOperation /*operation*/, CompiledGeometryHandle /*geometry*/, Vector2f /*translation*/) {}
 
+bool RenderInterface::RenderToClipShape(ClipMaskOperation /*operation*/, CompiledGeometryHandle /*geometry*/, const ClipShape& /*shape*/,
+	Vector2f /*translation*/)
+{
+	return false;
+}
+
 void RenderInterface::SetTransform(const Matrix4f* /*transform*/) {}
 
 LayerHandle RenderInterface::PushLayer()
