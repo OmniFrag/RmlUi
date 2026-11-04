@@ -8,6 +8,7 @@
 #include "../../Include/RmlUi/Core/Profiling.h"
 #include "../../Include/RmlUi/Core/StyleSheet.h"
 #include "ElementStyle.h"
+#include "GeometryBackgroundBorder.h"
 
 namespace Rml {
 
@@ -233,6 +234,12 @@ void ElementEffects::RenderEffects(RenderStage render_stage)
 		Rectanglei scissor_region = Rectanglei(filter_region).IntersectIfValid(render_manager->GetScissorRegion());
 		render_manager->SetScissorRegion(scissor_region);
 	};
+	auto GetBorderShape = [this]() {
+		// The border box and its rounded corners, which a renderer may clip the backdrop to itself.
+		ClipShape shape = GeometryBackgroundBorder::GetClipShape(element->GetRenderBox(BoxArea::Border));
+		shape.rectangle = shape.rectangle.Translate(element->GetAbsoluteOffset(BoxArea::Border).Round());
+		return shape;
+	};
 	auto GetBackdropInputRegion = [this]() {
 		// The region read for backdrop drawing, which covers the element's border box plus any area we may need to read
 		// from, such as any blur radius.
@@ -256,7 +263,7 @@ void ElementEffects::RenderEffects(RenderStage render_stage)
 		if (!backdrop_filters.empty())
 		{
 			const LayerHandle backdrop_destination_layer = render_manager->GetTopLayer();
-			const CompositeInfo backdrop_info = {GetBackdropInputRegion()};
+			const CompositeInfo backdrop_info = {GetBackdropInputRegion(), GetBorderShape()};
 
 			FilterHandleList filter_handles;
 			for (auto& filter : backdrop_filters)

@@ -16,9 +16,6 @@ enum class BlendMode {
 	Blend,   // Normal alpha blending.
 	Replace, // Replace the destination colors from the source.
 };
-struct CompositeInfo {
-	Rectanglei input_region; // The region the filters may read from the source, in window pixels.
-};
 struct ClipShape {
 	Rectanglef rectangle;
 	// The horizontal and vertical radius of each corner, ordered by top-left, top-right, bottom-right, bottom-left.
@@ -29,6 +26,11 @@ inline bool operator==(const ClipShape& a, const ClipShape& b)
 {
 	return a.rectangle == b.rectangle && a.radii == b.radii;
 }
+struct CompositeInfo {
+	Rectanglei input_region; // The region the filters may read from the source, in window pixels.
+	// The element's border box and its corners' radii, positioned as its geometry is, before the current transform.
+	ClipShape element_shape;
+};
 
 /**
     The abstract base class for application-specific rendering implementation. Your application must provide a concrete

@@ -23,23 +23,6 @@
 
 namespace Rml {
 
-// Returns the clip geometry of the given render box as a rounded rectangle, with the corners the background geometry is generated with.
-static ClipShape GetClipShape(const RenderBox& render_box)
-{
-	const BorderMetrics metrics = GeometryBackgroundBorder::ComputeBorderMetrics(render_box.GetBorderOffset(), render_box.GetBorderWidths(),
-		render_box.GetFillSize(), render_box.GetBorderRadius());
-
-	ClipShape shape;
-	shape.rectangle = Rectanglef::FromPositionSize(metrics.positions_inner[0], render_box.GetFillSize());
-	for (int i = 0; i < 4; i++)
-	{
-		const Vector2f radius = metrics.inner_radii[i];
-		const bool sharp = (metrics.outer_radii[i] == 0.f || radius.x <= 0.f || radius.y <= 0.f);
-		shape.radii[i] = (sharp ? Vector2f(0.f) : radius);
-	}
-	return shape;
-}
-
 Element* ElementUtilities::GetElementById(Element* root_element, const String& id)
 {
 	// Breadth first search on elements for the corresponding id
@@ -186,7 +169,7 @@ bool ElementUtilities::GetClippingRegion(Element* element, Rectanglei& out_clip_
 					{
 						ClipMaskGeometry clip{clip_operation, clip_geometry, absolute_offset, transform, clipping_element};
 						clip.has_shape = true;
-						clip.shape = GetClipShape(clipping_element->GetRenderBox(clip_area));
+						clip.shape = GeometryBackgroundBorder::GetClipShape(clipping_element->GetRenderBox(clip_area));
 						out_clip_mask_list->push_back(clip);
 					}
 				}

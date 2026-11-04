@@ -2,6 +2,7 @@
 #include "../../Include/RmlUi/Core/Box.h"
 #include "../../Include/RmlUi/Core/Math.h"
 #include "../../Include/RmlUi/Core/RenderBox.h"
+#include "../../Include/RmlUi/Core/RenderInterface.h"
 #include <algorithm>
 #include <float.h>
 
@@ -94,6 +95,22 @@ bool GeometryBackgroundBorder::IsPointWithinCorners(const RenderBox& render_box,
 	}
 
 	return true;
+}
+
+ClipShape GeometryBackgroundBorder::GetClipShape(const RenderBox& render_box)
+{
+	const BorderMetrics metrics =
+		ComputeBorderMetrics(render_box.GetBorderOffset(), render_box.GetBorderWidths(), render_box.GetFillSize(), render_box.GetBorderRadius());
+
+	ClipShape shape;
+	shape.rectangle = Rectanglef::FromPositionSize(metrics.positions_inner[0], render_box.GetFillSize());
+	for (int i = 0; i < 4; i++)
+	{
+		const Vector2f radius = metrics.inner_radii[i];
+		const bool sharp = (metrics.outer_radii[i] == 0.f || radius.x <= 0.f || radius.y <= 0.f);
+		shape.radii[i] = (sharp ? Vector2f(0.f) : radius);
+	}
+	return shape;
 }
 
 void GeometryBackgroundBorder::DrawBackground(const BorderMetrics& metrics, ColourbPremultiplied color)

@@ -176,6 +176,7 @@ public:
 		const Rectanglei& input = info.input_region;
 		calls.push_back(CreateString("composite %d>%d, %d filters, from %d,%d %dx%d", int(source), int(destination), int(filters.size()),
 			input.Left(), input.Top(), input.Width(), input.Height()));
+		element_shape = info.element_shape;
 		return true;
 	}
 	void PopLayer() override
@@ -185,6 +186,7 @@ public:
 
 	bool support_info = false;
 	StringList calls;
+	ClipShape element_shape = {};
 };
 
 static const String document_backdrop_rml = R"(
@@ -197,6 +199,7 @@ static const String document_backdrop_rml = R"(
 			top: 50px;
 			width: 200px;
 			height: 100px;
+			border-radius: 10px 20px 0 5px;
 			backdrop-filter: blur(10px);
 		}
 	</style>
@@ -228,7 +231,14 @@ TEST_CASE("filter.backdrop")
 		// The blur reads three sigma past the border box. With info, the window is composited onto itself in one step,
 		// reading from that region; without it, through a temporary layer.
 		if (support_info)
+		{
 			CHECK(render_interface.calls == StringList{"composite 0>0, 1 filters, from 70,20 260x160"});
+
+			// The element's border box and its corners, for a renderer to clip the backdrop to.
+			const ClipShape& shape = render_interface.element_shape;
+			CHECK(shape.rectangle == Rectanglef::FromPositionSize({100.f, 50.f}, {200.f, 100.f}));
+			CHECK(shape.radii == Array<Vector2f, 4>{Vector2f(10.f), Vector2f(20.f), Vector2f(0.f), Vector2f(5.f)});
+		}
 		else
 			CHECK(render_interface.calls == StringList{"push", "composite 0>1, 1 filters", "composite 1>0, 0 filters", "pop"});
 
