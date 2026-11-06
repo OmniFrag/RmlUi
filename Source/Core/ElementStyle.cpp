@@ -806,6 +806,37 @@ void ElementStyle::DirtyInheritedProperties()
 	dirty_properties |= StyleSheetSpecification::GetRegisteredInheritedProperties();
 }
 
+// Returns true if the lengths of a filter property may use any of the given units. Filters aren't compiled again when only
+// the element's box changes, see ElementEffects, so they must be dirtied when what their lengths resolve to changes.
+static bool FilterUsesUnits(PropertyId id, const Property& property, Units units)
+{
+	if (id != PropertyId::Filter && id != PropertyId::BackdropFilter)
+		return false;
+
+	// The units of a value with variables are only known once they are substituted.
+	if (property.unit == Unit::VAR_EXPRESSION)
+		return true;
+
+	if (property.unit != Unit::FILTER || property.value.GetType() != Variant::FILTERSPTR)
+		return false;
+
+	const FiltersPtr& filters = property.value.GetReference<FiltersPtr>();
+	if (!filters)
+		return false;
+
+	// A filter's lengths are within the properties of its declarations.
+	for (const FilterDeclaration& declaration : filters->list)
+	{
+		for (const auto& id_property_pair : declaration.properties.GetProperties())
+		{
+			if (Any(id_property_pair.second.unit & units))
+				return true;
+		}
+	}
+
+	return false;
+}
+
 void ElementStyle::DirtyPropertiesWithUnits(Units units)
 {
 	// Dirty all the properties of this element that use the unit(s).
@@ -814,7 +845,7 @@ void ElementStyle::DirtyPropertiesWithUnits(Units units)
 		auto name_property_pair = *it;
 		PropertyId id = name_property_pair.first;
 		const Property& property = name_property_pair.second;
-		if (Any(property.unit & units))
+		if (Any(property.unit & units) || FilterUsesUnits(id, property, units))
 			DirtyProperty(id);
 	}
 }

@@ -155,6 +155,83 @@ TEST_CASE("filter")
 	TestsShell::ShutdownShell();
 }
 
+static const String document_filter_box_rml = R"(
+<rml>
+<head>
+	<style>
+		body {
+			width: 800px;
+			height: 600px;
+			--vw-filter: test(1vw);
+		}
+		div {
+			position: absolute;
+			left: 10px;
+			top: 10px;
+			width: 100px;
+			height: 100px;
+		}
+		#box { filter: test(1dp); }
+		#vw  { filter: test(1vw); }
+		#var { filter: var(--vw-filter); }
+	</style>
+</head>
+
+<body>
+	<div id="box"/>
+	<div id="vw"/>
+	<div id="var"/>
+</body>
+</rml>
+)";
+
+TEST_CASE("filter.box_change")
+{
+	compiled_test_filters.clear();
+	Context* context = TestsShell::GetContext();
+	REQUIRE(context);
+
+	FilterTestInstancer instancer;
+	Rml::Factory::RegisterFilterInstancer("test", &instancer);
+
+	ElementDocument* document = context->LoadDocumentFromMemory(document_filter_box_rml);
+	document->Show();
+	TestsShell::RenderLoop();
+
+	auto num_compiled = [](const String& id) {
+		return std::count_if(compiled_test_filters.begin(), compiled_test_filters.end(),
+			[&id](const CompiledTestFilter& compiled) { return compiled.element_id == id; });
+	};
+	REQUIRE(num_compiled("box") == 1);
+	REQUIRE(num_compiled("vw") == 1);
+	REQUIRE(num_compiled("var") == 1);
+
+	// A new position or size gives the element a new box, which its filters don't depend on.
+	Element* box = document->GetElementById("box");
+	box->SetProperty("left", "20.5px");
+	box->SetProperty("width", "150.5px");
+	TestsShell::RenderLoop();
+	CHECK(num_compiled("box") == 1);
+
+	// The viewport's size changes what a length relative to it resolves to, so filters using such lengths are compiled
+	// again, including those whose lengths are only known once their variables are substituted.
+	const Vector2i dimensions = context->GetDimensions();
+	context->SetDimensions(dimensions + Vector2i(100, 50));
+	TestsShell::RenderLoop();
+	CHECK(num_compiled("vw") == 2);
+	CHECK(num_compiled("var") == 2);
+	CHECK(num_compiled("box") == 1);
+
+	// So does a new value.
+	box->SetProperty("filter", "test(2dp)");
+	TestsShell::RenderLoop();
+	CHECK(num_compiled("box") == 2);
+
+	context->SetDimensions(dimensions);
+	document->Close();
+	TestsShell::ShutdownShell();
+}
+
 // Records the layer calls, and composites with info only when told to.
 class LayerRecordingRenderInterface : public TestsRenderInterface {
 public:

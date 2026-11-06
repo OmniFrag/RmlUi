@@ -26,8 +26,11 @@ public:
 
 	// Mark effects as dirty and force them to reset themselves.
 	void DirtyEffects();
-	// Mark the element data of effects as dirty.
+	// Mark the element data of effects as dirty, including compiled filters.
 	void DirtyEffectsData();
+	// Mark the element data of decorators and mask images as dirty, as when the element's box changes. Filters are
+	// compiled from the element's properties alone, so they're left as they are.
+	void DirtyDecoratorsData();
 
 private:
 	// Releases existing element data of effects, and regenerates it.
@@ -58,8 +61,10 @@ private:
 
 	// If set, a full reload is necessary.
 	bool effects_dirty = false;
-	// If set, element data of all decorators need to be regenerated.
+	// If set, element data of all decorators need to be regenerated, and all filters compiled again.
 	bool effects_data_dirty = false;
+	// If set, element data of all decorators need to be regenerated.
+	bool decorators_data_dirty = false;
 };
 
 } // namespace Rml

@@ -127,9 +127,12 @@ void ElementEffects::InstanceEffects()
 
 void ElementEffects::ReloadEffectsData()
 {
-	if (effects_data_dirty)
+	if (effects_data_dirty || decorators_data_dirty)
 	{
+		// Filters don't depend on the element's box, so they are not compiled again when only decorators data is dirty.
+		const bool compile_filters = effects_data_dirty;
 		effects_data_dirty = false;
+		decorators_data_dirty = false;
 
 		bool decorator_data_failed = false;
 		for (DecoratorEntryList* list : {&decorators, &mask_images})
@@ -151,19 +154,22 @@ void ElementEffects::ReloadEffectsData()
 		if (decorator_data_failed)
 			Log::Message(Log::LT_WARNING, "Could not generate decorator element data: %s", element->GetAddress().c_str());
 
-		bool filter_compile_failed = false;
-		for (FilterEntryList* list : {&filters, &backdrop_filters})
+		if (compile_filters)
 		{
-			for (FilterEntry& filter : *list)
+			bool filter_compile_failed = false;
+			for (FilterEntryList* list : {&filters, &backdrop_filters})
 			{
-				filter.compiled = filter.filter->CompileFilter(element);
-				if (!filter.compiled)
-					filter_compile_failed = true;
+				for (FilterEntry& filter : *list)
+				{
+					filter.compiled = filter.filter->CompileFilter(element);
+					if (!filter.compiled)
+						filter_compile_failed = true;
+				}
 			}
-		}
 
-		if (filter_compile_failed)
-			Log::Message(Log::LT_WARNING, "Could not compile filter on element: %s", element->GetAddress().c_str());
+			if (filter_compile_failed)
+				Log::Message(Log::LT_WARNING, "Could not compile filter on element: %s", element->GetAddress().c_str());
+		}
 	}
 }
 
@@ -333,6 +339,11 @@ void ElementEffects::DirtyEffects()
 void ElementEffects::DirtyEffectsData()
 {
 	effects_data_dirty = true;
+}
+
+void ElementEffects::DirtyDecoratorsData()
+{
+	decorators_data_dirty = true;
 }
 
 } // namespace Rml

@@ -21,6 +21,8 @@ public:
 	/// Called to compile the filter for a given element.
 	/// @param[in] element The element the filter will be applied to.
 	/// @return A compiled filter constructed through the render manager, or a default-constructed one to indicate an error.
+	/// @note Called again when the filter's value or what its lengths resolve to changes, but not when only the element's
+	/// box changes. Thus, the compiled filter should not depend on the element's size or position.
 	virtual CompiledFilter CompileFilter(Element* element) const = 0;
 
 	/// Called to allow extending the area being affected by this filter beyond the border box of the element.

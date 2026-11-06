@@ -423,7 +423,7 @@ void Element::UpdateAbsoluteOffsetAndRenderBoxData()
 			rounded_main_padding_size = new_rounded_main_padding_size;
 			meta->background_border.DirtyBackground();
 			meta->background_border.DirtyBorder();
-			meta->effects.DirtyEffectsData();
+			meta->effects.DirtyDecoratorsData();
 		}
 	}
 }
@@ -468,7 +468,7 @@ void Element::SetBox(const Box& box)
 		rounded_main_padding_size_dirty = true;
 		meta->background_border.DirtyBackground();
 		meta->background_border.DirtyBorder();
-		meta->effects.DirtyEffectsData();
+		meta->effects.DirtyDecoratorsData();
 
 		if (transform_state)
 			DirtyTransformState(true, true);
@@ -481,7 +481,7 @@ void Element::AddBox(const Box& box, Vector2f offset)
 	OnResize();
 	meta->background_border.DirtyBackground();
 	meta->background_border.DirtyBorder();
-	meta->effects.DirtyEffectsData();
+	meta->effects.DirtyDecoratorsData();
 }
 
 const Box& Element::GetBox()
